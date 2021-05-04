@@ -9,7 +9,7 @@
 #define FUNC_INPUT_SIZE 4         // max values in one function (eg. 4: A and B and C and D)
 
 
-enum Function {fnone, fand, f_or, fxor, fnot, fnand, fnor};
+enum Function {fstill, fand, f_or, fxor, fnot, fnand, fnor, fnone};
 enum Inputs {A=1, B, C, D, E, F, G, H};
 
 
