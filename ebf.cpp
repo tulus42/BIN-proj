@@ -211,7 +211,7 @@ vector<int> get_fwht_indexes(vector<int> table) {
 
 vector<int> fwht(vector<int> table) {
     table = create_input_vector_for_fwht(table);
-    print_table(table, "FWHT input vector");
+    // print_table(table, "FWHT input vector");
 
 
     int n = table.size();
@@ -368,7 +368,51 @@ vector<int> generate_chromosome() {
 // =========================================================================
 
 
+// -------------------------------------------------------------------------
+// MUTATION // #############################################################
+chromosome_t make_mutation(chromosome_t chrom) {
+    int rand_pos;
+    int rand_mut;
+    int gens_num = (rand() % GENS_MUTATTIONS_NUM) + 1;
 
+    for (int i=0; i < gens_num; i++) {
+        rand_pos = rand() % ((FUNC_CNT) * (FUNC_INPUT_SIZE + 1));
+        rand_mut = rand();
+
+        // mutation of function
+        if ((rand_pos + 1) % (FUNC_INPUT_SIZE + 1) == 0) {
+            chrom[rand_pos] = rand_mut % USABLE_FUNCTIONS;
+
+        // mutation of input
+        } else {
+            // first column - from input
+            if (rand_pos / (FUNC_INPUT_SIZE + 1) < FIRST_COL_SIZE) {
+                rand_mut = rand_mut % (INPUT_CNT + 1);
+
+            // others - from blocks    
+            } else {
+                
+                // set no input
+                if (rand_mut % (FUNC_INPUT_SIZE + 1) == FUNC_INPUT_SIZE) {
+                    rand_mut = 0;
+                // take input
+                } else {
+                    // second col - take from first col
+                    if (rand_pos / (FUNC_INPUT_SIZE + 1) < (FIRST_COL_SIZE + SEC_COL_SIZE)) {
+                        rand_mut = (rand_mut % FIRST_COL_SIZE) + (INPUT_CNT + 1);
+                    // last node - take from second col
+                    } else {
+                        rand_mut = (rand_mut % SEC_COL_SIZE) + (INPUT_CNT + FIRST_COL_SIZE + 1);
+                    }
+                }
+            }
+            chrom[rand_pos] = rand_mut;
+        }
+    }
+    return chrom;
+}
+// END MUTATION // #########################################################
+// =========================================================================
 
 
 void init_function_table() {
@@ -419,6 +463,8 @@ int main(int argc, char** argv) {
 
     chromosome_t chrom = generate_chromosome();
     print_table(chrom, "CHROMOSOME");
+    chrom = make_mutation(chrom);
+    print_table(chrom, "MUTATION");
 
     decode_chromosome(chrom);
 
@@ -426,7 +472,7 @@ int main(int argc, char** argv) {
     //vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
     // vector<int> table = fill_table("10100110");
 
-    print_table(table, "Truth Table");
+    // print_table(table, "Truth Table");
 
     table = fwht(table);
 

@@ -12,8 +12,9 @@
 #define USABLE_FUNCTIONS 5
 
 #define POP_SIZE 5              // size of population
-#define GEN_NUM 100             // number of generations - length of evolution
-#define EVO_NUM 100             // number of separate evolutions
+#define GENERATIONS_NUM 100     // number of generations - length of evolution
+#define EVOLUTIONS_NUM 100      // number of separate evolutions
+#define GENS_MUTATTIONS_NUM 3   // max number of mutations in 1 chromosome
 
 
 
