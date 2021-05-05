@@ -1,5 +1,7 @@
 #include <vector>
 #include <iostream>
+#include <stdlib.h>
+#include <time.h>
 
 #define INPUT_CNT 8
 #define FIRST_COL_SIZE 4
@@ -7,6 +9,13 @@
 #define FUNC_CNT FIRST_COL_SIZE + SEC_COL_SIZE + 1
 
 #define FUNC_INPUT_SIZE 4         // max values in one function (eg. 4: A and B and C and D)
+#define USABLE_FUNCTIONS 5
+
+#define POP_SIZE 5              // size of population
+#define GEN_NUM 100             // number of generations - length of evolution
+#define EVO_NUM 100             // number of separate evolutions
+
+
 
 
 enum Function {fstill, fand, f_or, fxor, fnot, fnand, fnor, fnone};

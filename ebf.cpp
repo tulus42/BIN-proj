@@ -2,6 +2,7 @@
 
 
 using namespace std;
+using chromosome_t = vector<int>;
 
 Node last_node;
 vector<Node> first_col;
@@ -79,6 +80,7 @@ void print_table(vector<int> table, string label) {
         cout << table[i] << " ";
         if ((i+1) % 64 == 0) cout << endl;
     }
+    cout << endl;
 }
 // END PRINTS // ###########################################################
 // =========================================================================
@@ -115,7 +117,7 @@ bool eval_single_value(bool val1, bool val2, Function func) {
 }
 
 
-bool eval_values(vector<int> indexes, vector<bool> vals, Function func) {
+bool eval_node(vector<int> indexes, vector<bool> vals, Function func) {
     if (func == fnone) return 0;
 
     bool actual_val = vals[0];
@@ -129,37 +131,37 @@ bool eval_values(vector<int> indexes, vector<bool> vals, Function func) {
 
 
 bool eval_input(int input_int) {
-    vector<bool> inputs;
+    vector<bool> inputs_bin;
     bool tmp;
 
     // get 8 binary values from 1 int
     for (int i=0; i < 8; i++) {
         tmp = input_int & 0x01;
-        inputs.insert(inputs.begin(), tmp);
+        inputs_bin.insert(inputs_bin.begin(), tmp);
         input_int = input_int >> 1;
     } 
 
     // evaluate first column
     vector<bool> first_col_vals;
     for (int i=0; i < FIRST_COL_SIZE; i++) {
-        first_col_vals.push_back(eval_values(first_col[i].inputs, inputs, first_col[i].func));
+        first_col_vals.push_back(eval_node(first_col[i].inputs, inputs_bin, first_col[i].func));
     }
 
     vector<bool> second_col_vals;
     for (int i=0; i < SEC_COL_SIZE; i++) {
-        second_col_vals.push_back(eval_values(sec_col[i].inputs, first_col_vals, sec_col[i].func));
+        second_col_vals.push_back(eval_node(sec_col[i].inputs, first_col_vals, sec_col[i].func));
     }
 
     bool res;
     
-    res = eval_values(last_node.inputs, second_col_vals, last_node.func);
+    res = eval_node(last_node.inputs, second_col_vals, last_node.func);
     
     return res;
 } 
 
 
-vector<bool> get_truth_table() {
-    vector<bool> truth_table;
+vector<int> get_truth_table() {
+    vector<int> truth_table;
     for (int i=0; i < 256; i++) {
         truth_table.push_back(eval_input(i));
         // if ((i+1) % 64 == 0) cout << endl;
@@ -170,34 +172,62 @@ vector<bool> get_truth_table() {
 // END CALCULATING TRUTH TABLE // ##########################################
 // =========================================================================
 
+
+vector<int> fill_table(string input) {
+    vector<int> table;
+    int n = input.size();
+    for (int i=0; i < n; i++) {
+        table.push_back(input[i] == '0' ? 0 : 1);
+    }
+
+    return table;
+}
+
+
 // -------------------------------------------------------------------------
 // CALCULATING FWHT // #####################################################
 vector<int> create_input_vector_for_fwht(vector<int> table) {
-    for (int i=0; i < 256; i++) {
+    int n = table.size();
+    for (int i=0; i < n; i++) {
         table[i] = table[i] == 0 ? -1 : 1;
     }
 
     return table;
 }
 
+
+vector<int> get_fwht_indexes(vector<int> table) {
+    int n = table.size();
+    vector<int> indexes;
+    for (int i=0; i < n; i++) {
+        if (table[i] != 0) {
+            indexes.push_back(i);
+        }
+    }
+
+    return indexes;
+}
+
+
 vector<int> fwht(vector<int> table) {
     table = create_input_vector_for_fwht(table);
     print_table(table, "FWHT input vector");
 
-    int h = 1;
-    int tab_size = table.size();
-    bool x;
-    bool y;
-    while (h < tab_size) {
-        for (int i=0; i < tab_size; i+=h*2) {
-            for (int j=i; j < i+h; j++) {
-                x = table[j];
-                y = table[j +h];
-                table[j] = x + y;
-                table[j + h] = x - y;
+
+    int n = table.size();
+    for(int m = 1; 2 * m <= n; m *= 2) {
+        for(int i = 0; i < n; i += 2 * m) {
+            for(int j = 0; j < m; ++j) {
+                auto x = table[i + j];
+                auto y = table[i + j + m];
+                
+                    // table[i + j] = y;
+                    // table[i + j + m] = x + y;
+                                        
+                    table[i + j] = -x + y;
+                    table[i + j + m] = x;
             }
         }
-        h *= 2;
     }
 
     return table;
@@ -208,65 +238,207 @@ vector<int> fwht(vector<int> table) {
 // =========================================================================
 
 
-
-vector<int> fill_table(string input) {
-    vector<int> table;
-    for (int i=0; i < 256; i++) {
-        table.push_back(input[i] == '0' ? 0 : 1);
+// -------------------------------------------------------------------------
+// EVAL BOOL FUNCTION // ###################################################
+int get_hamming_weight(vector<int> truth_table) {
+    int cnt = 0;
+    int n = truth_table.size();
+    for (int i=0; i < n; i++) {
+        if (truth_table[i] == 1) cnt++;        
     }
 
-    return table;
+    return cnt;
 }
+
+int count_set_bits(int num) {
+    int cnt = 0;
+    while (num) {
+        cnt += num & 1;
+        num >>= 1;
+    }
+
+    return cnt;
+}
+
+int get_correlation_immunity(vector<int> indexes) {
+    int lowest_immunity = 9999;
+    int tmp_immunity;
+    int n = indexes.size();
+    for (int i=0; i < n; i++) {
+        tmp_immunity = count_set_bits(indexes[i]);
+        if (tmp_immunity != 0 && tmp_immunity < lowest_immunity) lowest_immunity = tmp_immunity;
+    }
+    
+    return lowest_immunity-1;
+}
+
+
+void eval_bool_function() {
+    // vector<int> truth_table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
+    vector<int> truth_table = get_truth_table();
+
+    vector<int> table = fwht(truth_table);
+    vector<int> indexes = get_fwht_indexes(table);
+    int hamming_weight = get_hamming_weight(truth_table);
+    int correlation_immunity = get_correlation_immunity(indexes);
+    cout << "H: " << hamming_weight << " CI: " << correlation_immunity << endl;
+}
+
+
+// END EVAL BOOL FUNCTION // ###############################################
+// =========================================================================
+
+
+// -------------------------------------------------------------------------
+// CHROMOSOME // ###########################################################
+vector<int> encode_chromosome() {
+    vector<int> result;
+    for (int i=0; i < FIRST_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            result.push_back(first_col[i].inputs[j]);
+        }
+        result.push_back(first_col[i].func);
+    }
+
+    for (int i=0; i < SEC_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            result.push_back(sec_col[i].inputs[j]);
+        }
+        result.push_back(sec_col[i].func);
+    }
+
+    for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+        result.push_back(last_node.inputs[j]);
+    }
+    result.push_back(last_node.func);
+
+    return result;
+}
+
+
+void decode_chromosome(vector<int> chromosome) {
+    for (int i=0; i < FIRST_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            first_col[i].inputs[j] = chromosome[i*(FUNC_INPUT_SIZE+1) + j];
+        }
+        first_col[i].func = (Function)chromosome[i*(FUNC_INPUT_SIZE+1) + FUNC_INPUT_SIZE];
+    }
+
+    for (int i=0; i < SEC_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            sec_col[i].inputs[j] = chromosome[i*(FUNC_INPUT_SIZE+1) + FIRST_COL_SIZE*(FUNC_INPUT_SIZE+1) + j];
+        }
+        sec_col[i].func = (Function)chromosome[i*(FUNC_INPUT_SIZE+1) + FIRST_COL_SIZE*(FUNC_INPUT_SIZE+1) + FUNC_INPUT_SIZE];
+    }
+
+    for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+        last_node.inputs[j] = chromosome[FIRST_COL_SIZE*(FUNC_INPUT_SIZE+1) + SEC_COL_SIZE*(FUNC_INPUT_SIZE+1) + j];
+    }
+    last_node.func = (Function)chromosome[FIRST_COL_SIZE*(FUNC_INPUT_SIZE+1) + SEC_COL_SIZE*(FUNC_INPUT_SIZE+1) + FUNC_INPUT_SIZE];
+}
+
+vector<int> generate_chromosome() {
+    int rand_num;
+    chromosome_t chromosome;
+    
+    for (int i=0; i < (FUNC_CNT)*(FUNC_INPUT_SIZE+1); i++) {
+        rand_num = rand();
+        // generate function
+        if ((i+1) % (FUNC_INPUT_SIZE+1) == 0) {
+            chromosome.push_back(rand_num % USABLE_FUNCTIONS);
+
+        // generate inputs
+        } else {
+            // input from input vector - First column
+            if (i < FIRST_COL_SIZE*(FUNC_INPUT_SIZE+1)) {
+                chromosome.push_back((rand_num % INPUT_CNT) + 1);
+            // input from First column - Second column
+            } else if (i < (SEC_COL_SIZE + FIRST_COL_SIZE)*(FUNC_INPUT_SIZE+1)) {
+                chromosome.push_back((rand_num % FIRST_COL_SIZE) + INPUT_CNT + 1);
+            // input from Second column - Last node
+            } else {
+                chromosome.push_back((rand_num % SEC_COL_SIZE) + INPUT_CNT + FIRST_COL_SIZE + 1);
+            }
+        }
+    }
+
+    return chromosome;
+}
+// END CHROMOSOME // #######################################################
+// =========================================================================
+
+
+
+
 
 void init_function_table() {
     Node tmp;
-    tmp.func = f_or;
-    tmp.inputs.push_back(1);
-    tmp.inputs.push_back(4);
-    tmp.inputs.push_back(6);
-    tmp.inputs.push_back(8);
-    
-    for (int i=INPUT_CNT+1; i <= INPUT_CNT+FIRST_COL_SIZE; i++) {
-        tmp.index = i;
+
+    tmp.func = (Function)0;
+
+    // init First column with zeros
+    for (int i=0; i < FIRST_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            tmp.inputs.push_back(0);
+        }
+        tmp.index = i + INPUT_CNT + 1;
+
         first_col.push_back(tmp);
-    }
+    } 
 
-    tmp.func = fand;
-    tmp.inputs.pop_back();
-    tmp.inputs.pop_back();
-    tmp.inputs.pop_back();
-    tmp.inputs.pop_back();
-    tmp.inputs.push_back(9);
-    tmp.inputs.push_back(10);
-    tmp.inputs.push_back(11);
-    tmp.inputs.push_back(12);
+    // init Second column with zeros
+    tmp.inputs.clear();
 
-    for (int i=INPUT_CNT+FIRST_COL_SIZE+1; i <= INPUT_CNT+FIRST_COL_SIZE+SEC_COL_SIZE; i++) {
-        tmp.index = i;
+    for (int i=0; i < SEC_COL_SIZE; i++) {
+        for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            tmp.inputs.push_back(0);
+        }
+        tmp.index = i + INPUT_CNT + FIRST_COL_SIZE + 1;
+
         sec_col.push_back(tmp);
-    }
+    } 
 
-    last_node.index = INPUT_CNT + FIRST_COL_SIZE + SEC_COL_SIZE + 1;
-    last_node.func = fxor;
-    last_node.inputs.push_back(13);
-    last_node.inputs.push_back(14);
+    // init Last node with zeros
+    tmp.inputs.clear();
 
+    for (int j=0; j < FUNC_INPUT_SIZE; j++) {
+            tmp.inputs.push_back(0);
+        }
+        tmp.index = INPUT_CNT + FIRST_COL_SIZE + SEC_COL_SIZE + 1;
+
+    last_node = tmp;
 }
 
 
 int main(int argc, char** argv) {
+    srand (time(NULL));
+
     init_function_table();
 
-    show_function();
+    // show_function();
 
-    //vector<bool> table = get_truth_table();
-    vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
+    chromosome_t chrom = generate_chromosome();
+    print_table(chrom, "CHROMOSOME");
+
+    decode_chromosome(chrom);
+
+    vector<int> table = get_truth_table();
+    //vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
+    // vector<int> table = fill_table("10100110");
 
     print_table(table, "Truth Table");
 
     table = fwht(table);
 
-    print_table(table, "FWHT");
+    // print_table(table, "FWHT");
+
+    vector<int> indexes = get_fwht_indexes(table);
+
+    // print_table(indexes, "INDEXES");
+
+    eval_bool_function();
+
+    // print_table(encode_chromosome(), "CHROMOSOME");
 
 
     return 0;
