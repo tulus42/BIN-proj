@@ -7,6 +7,18 @@ using chromosome_t = vector<int>;
 Node last_node;
 vector<Node> first_col;
 vector<Node> sec_col;
+vector<chromosome_t> population;
+
+
+vector<int> fill_table(string input) {
+    vector<int> table;
+    int n = input.size();
+    for (int i=0; i < n; i++) {
+        table.push_back(input[i] == '0' ? 0 : 1);
+    }
+
+    return table;
+}
 
 // -------------------------------------------------------------------------
 // PRINTS // ###############################################################
@@ -120,13 +132,18 @@ bool eval_single_value(bool val1, bool val2, Function func) {
 bool eval_node(vector<int> indexes, vector<bool> vals, Function func) {
     if (func == fnone) return 0;
 
-    bool actual_val = vals[0];
+    bool actual_val = vals[indexes[0]];
     for (int i=1; i < indexes.size(); i++) {
+        if (indexes[i] == 0) continue;
         actual_val = eval_single_value(actual_val, vals[i], func);
     }
 
-    return actual_val;
+    if (indexes.size() == 1) {
+        if (func == fnot) return !actual_val;
+        if (func == fnone) return 0;
+    } 
 
+    return actual_val;
 }
 
 
@@ -173,17 +190,6 @@ vector<int> get_truth_table() {
 // =========================================================================
 
 
-vector<int> fill_table(string input) {
-    vector<int> table;
-    int n = input.size();
-    for (int i=0; i < n; i++) {
-        table.push_back(input[i] == '0' ? 0 : 1);
-    }
-
-    return table;
-}
-
-
 // -------------------------------------------------------------------------
 // CALCULATING FWHT // #####################################################
 vector<int> create_input_vector_for_fwht(vector<int> table) {
@@ -210,30 +216,24 @@ vector<int> get_fwht_indexes(vector<int> table) {
 
 
 vector<int> fwht(vector<int> table) {
-    table = create_input_vector_for_fwht(table);
-    // print_table(table, "FWHT input vector");
 
-
-    int n = table.size();
-    for(int m = 1; 2 * m <= n; m *= 2) {
-        for(int i = 0; i < n; i += 2 * m) {
-            for(int j = 0; j < m; ++j) {
-                auto x = table[i + j];
-                auto y = table[i + j + m];
-                
-                    // table[i + j] = y;
-                    // table[i + j + m] = x + y;
-                                        
-                    table[i + j] = -x + y;
-                    table[i + j + m] = x;
+    int h = 1;
+    int tab_size = table.size();
+    int x;
+    int y;
+    while (h < tab_size) {
+        for (int i=0; i < tab_size; i+=h*2) {
+            for (int j=i; j < i+h; j++) {
+                x = table[j];
+                y = table[j +h];
+                table[j] = x + y;
+                table[j + h] = x - y;
             }
         }
+        h *= 2;
     }
-
     return table;
 }
-
-
 // END CALCULATING FWHT // #################################################
 // =========================================================================
 
@@ -261,9 +261,14 @@ int count_set_bits(int num) {
 }
 
 int get_correlation_immunity(vector<int> indexes) {
+    // print_table(indexes, "Cor imm");
+
     int lowest_immunity = 9999;
     int tmp_immunity;
     int n = indexes.size();
+
+    if (n == 0 || (n == 1 && indexes[0] == 0)) return 0;
+
     for (int i=0; i < n; i++) {
         tmp_immunity = count_set_bits(indexes[i]);
         if (tmp_immunity != 0 && tmp_immunity < lowest_immunity) lowest_immunity = tmp_immunity;
@@ -273,7 +278,8 @@ int get_correlation_immunity(vector<int> indexes) {
 }
 
 
-void eval_bool_function() {
+void eval_bool_function(chromosome_t chrom, int* ham_w, int* cor_im) {
+    decode_chromosome(chrom);
     // vector<int> truth_table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
     vector<int> truth_table = get_truth_table();
 
@@ -281,10 +287,11 @@ void eval_bool_function() {
     vector<int> indexes = get_fwht_indexes(table);
     int hamming_weight = get_hamming_weight(truth_table);
     int correlation_immunity = get_correlation_immunity(indexes);
-    cout << "H: " << hamming_weight << " CI: " << correlation_immunity << endl;
+    // cout << "H: " << hamming_weight << " CI: " << correlation_immunity << endl;
+
+    *ham_w = hamming_weight;
+    *cor_im = correlation_immunity;
 }
-
-
 // END EVAL BOOL FUNCTION // ###############################################
 // =========================================================================
 
@@ -392,8 +399,8 @@ chromosome_t make_mutation(chromosome_t chrom) {
             // others - from blocks    
             } else {
                 
-                // set no input
-                if (rand_mut % (FUNC_INPUT_SIZE + 1) == FUNC_INPUT_SIZE) {
+                // set no input - only if not first input in block
+                if ((rand_mut % (FUNC_INPUT_SIZE + 1) == FUNC_INPUT_SIZE) && (rand_pos % (FUNC_INPUT_SIZE + 1) != 0)) {
                     rand_mut = 0;
                 // take input
                 } else {
@@ -412,6 +419,103 @@ chromosome_t make_mutation(chromosome_t chrom) {
     return chrom;
 }
 // END MUTATION // #########################################################
+// =========================================================================
+
+
+// -------------------------------------------------------------------------
+// EVOLUTION // ############################################################
+void init_population() {
+    for (int i=0; i < POP_SIZE; i++) {
+        population.push_back(generate_chromosome());
+    }
+}
+
+
+int get_fitness(chromosome_t chrom, int required_cor_imm) {
+    int fit_val = 0;
+    int ham_w;
+    int cor_im;
+    eval_bool_function(chrom, &ham_w, &cor_im);
+
+    // TODO 
+    // FIXME
+
+    fit_val += 256-ham_w;
+    
+    if (required_cor_imm - cor_im == 0) {
+        fit_val += 300;
+    } else {
+        fit_val += abs(required_cor_imm - cor_im) * 20;
+    }
+
+    return fit_val;
+}
+
+
+void eval_population(int required_cor_imm, int* best_fit, int* best_fit_idx) {
+    // eval chromosome
+    int pop_best_fit = *best_fit;
+    int pop_best_fit_idx = *best_fit_idx;
+    for (int i=0; i < POP_SIZE; i++) {
+        // skip actual best chromosome
+        if (i == *best_fit_idx) continue;
+
+        int local_fit = get_fitness(population[i], required_cor_imm);
+        if (local_fit >= pop_best_fit) {
+            pop_best_fit = local_fit;
+            pop_best_fit_idx = i;
+        }
+    }
+
+    *best_fit = pop_best_fit;
+    *best_fit_idx = pop_best_fit_idx;
+}
+
+
+
+
+
+
+void do_evolution(int required_cor_imm) {
+    init_population();
+
+    int best_fit = 0;
+    int best_fit_idx = 0;
+
+    // initail evaluate of population
+    for (int i=0; i < POP_SIZE; i++) {
+        
+        // cout << endl;
+        // print_table(population[i], "CHROMOSOME ");
+
+        int local_fit = get_fitness(population[i], required_cor_imm);
+        if (local_fit >= best_fit) {
+            best_fit = local_fit;
+            best_fit_idx = i;
+        }
+    }
+
+    cout << best_fit_idx << " " << best_fit << endl;
+    print_table(population[best_fit_idx], "BEST CHORMOSOME");
+
+    // EVOLVE FOR MAX GENERATIONS
+    for (int i=0; i < GENERATIONS_NUM; i++) {
+
+        eval_population(required_cor_imm, &best_fit, &best_fit_idx);
+
+        for (int i=0; i < POP_SIZE; i++) {
+            // skip best chromosome
+            if (i == best_fit_idx) continue;
+        
+            population[i] = make_mutation(population[i]);
+        }
+
+        cout << best_fit_idx << " " << best_fit << endl;
+        // print_table(population[best_fit_idx], "BEST CHORMOSOME");
+    }
+}
+
+// END EVOLUTION // ########################################################
 // =========================================================================
 
 
@@ -454,6 +558,10 @@ void init_function_table() {
 }
 
 
+
+
+
+
 int main(int argc, char** argv) {
     srand (time(NULL));
 
@@ -461,30 +569,16 @@ int main(int argc, char** argv) {
 
     // show_function();
 
-    chromosome_t chrom = generate_chromosome();
-    print_table(chrom, "CHROMOSOME");
-    chrom = make_mutation(chrom);
-    print_table(chrom, "MUTATION");
+    // chromosome_t chrom = generate_chromosome();
+    // print_table(chrom, "CHROMOSOME");
+    // chrom = make_mutation(chrom);
+    // print_table(chrom, "MUTATION");
+    do_evolution(1);
 
-    decode_chromosome(chrom);
-
-    vector<int> table = get_truth_table();
-    //vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
+    // vector<int> table = get_truth_table();
+    // vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
     // vector<int> table = fill_table("10100110");
 
-    // print_table(table, "Truth Table");
-
-    table = fwht(table);
-
-    // print_table(table, "FWHT");
-
-    vector<int> indexes = get_fwht_indexes(table);
-
-    // print_table(indexes, "INDEXES");
-
-    eval_bool_function();
-
-    // print_table(encode_chromosome(), "CHROMOSOME");
 
 
     return 0;
