@@ -9,6 +9,13 @@ vector<Node> first_col;
 vector<Node> sec_col;
 vector<chromosome_t> population;
 
+int best_hw;
+int best_ci;
+int hw;
+int ci_reached_in = 0;
+vector<int> res_best_hw;
+vector<chromosome_t> res_best_chromosome;
+// int hw_reached_in = 0;
 
 vector<int> fill_table(string input) {
     vector<int> table;
@@ -91,6 +98,14 @@ void print_table(vector<int> table, string label) {
     for (int i=0; i < table.size(); i++) {
         cout << table[i] << " ";
         if ((i+1) % 64 == 0) cout << endl;
+    }
+    cout << endl;
+}
+
+void print_chromosome(vector<int> table, string label) {
+    cout << label << endl;
+    for (int i=0; i < table.size(); i++) {
+        cout << table[i] << " ";
     }
     cout << endl;
 }
@@ -425,6 +440,7 @@ chromosome_t make_mutation(chromosome_t chrom) {
 // -------------------------------------------------------------------------
 // EVOLUTION // ############################################################
 void init_population() {
+    population.clear();
     for (int i=0; i < POP_SIZE; i++) {
         population.push_back(generate_chromosome());
     }
@@ -441,11 +457,12 @@ int get_fitness(chromosome_t chrom, int required_cor_imm) {
     // FIXME
 
     fit_val += 256-ham_w;
+    hw = ham_w;
     
     if (required_cor_imm - cor_im == 0) {
-        fit_val += 300;
+        fit_val += 500;
     } else {
-        fit_val += abs(required_cor_imm - cor_im) * 20;
+        fit_val += 100 - abs(required_cor_imm - cor_im) * 20;
     }
 
     return fit_val;
@@ -464,7 +481,13 @@ void eval_population(int required_cor_imm, int* best_fit, int* best_fit_idx) {
         if (local_fit >= pop_best_fit) {
             pop_best_fit = local_fit;
             pop_best_fit_idx = i;
+            // best_hw = 256 - (pop_best_fit - (pop_best_fit >= 500 ? 500 : 0));
+            best_hw = hw;
         }
+
+        // if (local_fit > pop_best_fit) {
+        //     hw_reached_in = 0;
+        // }
     }
 
     *best_fit = pop_best_fit;
@@ -479,26 +502,28 @@ void eval_population(int required_cor_imm, int* best_fit, int* best_fit_idx) {
 void do_evolution(int required_cor_imm) {
     init_population();
 
+    ci_reached_in = 0;
     int best_fit = 0;
     int best_fit_idx = 0;
 
     // initail evaluate of population
     for (int i=0; i < POP_SIZE; i++) {
-        
-        // cout << endl;
-        // print_table(population[i], "CHROMOSOME ");
 
         int local_fit = get_fitness(population[i], required_cor_imm);
         if (local_fit >= best_fit) {
             best_fit = local_fit;
             best_fit_idx = i;
+            best_hw = 256 - (best_fit - 500);
         }
     }
 
-    cout << best_fit_idx << " " << best_fit << endl;
-    print_table(population[best_fit_idx], "BEST CHORMOSOME");
 
-    // EVOLVE FOR MAX GENERATIONS
+    // cout << best_fit_idx << " " << best_fit << endl;
+    // print_table(population[best_fit_idx], "BEST CHORMOSOME");
+
+
+    
+    // EVOLVE FOR MAX GENERATIONS-----------------------------------------
     for (int i=0; i < GENERATIONS_NUM; i++) {
 
         eval_population(required_cor_imm, &best_fit, &best_fit_idx);
@@ -507,14 +532,35 @@ void do_evolution(int required_cor_imm) {
             // skip best chromosome
             if (i == best_fit_idx) continue;
         
+            // MUTATE
             population[i] = make_mutation(population[i]);
         }
 
-        cout << best_fit_idx << " " << best_fit << endl;
+        if (i % LOG_ON_LINE == 0) {
+            if (best_fit > 500) {
+                cout << "Gen: " << i << "/" << GENERATIONS_NUM << " FIT: " << best_fit << " hw: " << best_hw << endl;
+            } else {
+                cout << "Gen: " << i << "/" << GENERATIONS_NUM << " FIT: " << best_fit << endl;
+            }
+        }
+
+        if (ci_reached_in == 0) {
+            if (best_fit >= 500) ci_reached_in = i;
+        }
+        // if (hw_reached_in == 0) {
+        //     hw_reached_in = i;
+        // }
         // print_table(population[best_fit_idx], "BEST CHORMOSOME");
     }
-}
+    // END EVOLUTION ALGORITHM----------------------------------------------
 
+    res_best_hw.push_back(best_hw);
+    res_best_chromosome.push_back(population[best_fit_idx]);
+
+    cout << "BEST FIT: " << best_fit << " hw: " << best_hw << " CI reached in: " << ci_reached_in << endl;
+
+    print_chromosome(population[best_fit_idx], "BEST CHROMOSOME");
+}
 // END EVOLUTION // ########################################################
 // =========================================================================
 
@@ -567,17 +613,27 @@ int main(int argc, char** argv) {
 
     init_function_table();
 
-    // show_function();
+    int tmp_hw = 9999;
+    int tmp_hw_idx = -1;
+    for (int run=0; run < RUNS_NUM; run++) {
+        cout << endl << "=================" << endl;
+        cout << "---- RUN " << run << " ----" << endl;
+        cout << "-----------------" << endl;
+        
+        do_evolution(REQUIRED_COR_IM);
 
-    // chromosome_t chrom = generate_chromosome();
-    // print_table(chrom, "CHROMOSOME");
-    // chrom = make_mutation(chrom);
-    // print_table(chrom, "MUTATION");
-    do_evolution(1);
+        if (res_best_hw[run] < tmp_hw) {
+            tmp_hw = res_best_hw[run];
+            tmp_hw_idx = run;
+        }
+    }
 
-    // vector<int> table = get_truth_table();
-    // vector<int> table = fill_table("0001000000001000000001000010000000000010010000001000000000000001000000011000000001000000000000100010000000000100000010000001000000001000000100000010000000000100010000000000001000000001100000001000000000000001000000100100000000000100001000000001000000001000");
-    // vector<int> table = fill_table("10100110");
+    cout << endl << "=====================" << endl << "==== BEST RESULT ====" << "== on " << RUNS_NUM << " runs ==" << endl;
+    cout << "Best HW: " << res_best_hw[tmp_hw_idx] << endl;
+    print_chromosome(res_best_chromosome[tmp_hw_idx], "FINAL CHROMOSOME");
+
+    // do_evolution(REQUIRED_COR_IM);
+
 
 
 
