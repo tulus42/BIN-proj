@@ -3,21 +3,21 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define INPUT_CNT 8
-#define FIRST_COL_SIZE 8
-#define SEC_COL_SIZE 8
-#define FUNC_CNT FIRST_COL_SIZE + SEC_COL_SIZE + 1
+#define INPUT_CNT 8             // !! DON'T CHANGE !! - given by assignment
+#define FIRST_COL_SIZE 8        // MAY CHANGE - size of first column
+#define SEC_COL_SIZE 8          // MAY CHANGE - size of second column
+#define FUNC_CNT FIRST_COL_SIZE + SEC_COL_SIZE + 1      // !! DON'T CHANGE !! - sum of parameters
 
-#define FUNC_INPUT_SIZE 4         // max values in one function (eg. 4: A and B and C and D)
-#define USABLE_FUNCTIONS 8
+#define FUNC_INPUT_SIZE 4       // MAY CHANGE - max values in one function (eg. 4: (A and B and C and D))
+#define USABLE_FUNCTIONS 4      // MAY CHANGE - number of enumerated functions (Function) that will be used
 
-#define POP_SIZE 7             // size of population
-#define GENERATIONS_NUM 5000     // number of generations - length of evolution
-#define RUNS_NUM 5              // number of separate evolutions
-#define GENS_MUTATTIONS_NUM 5   // max number of mutations in 1 chromosome
+#define POP_SIZE 5              // MAY CHANGE - size of population
+#define GENERATIONS_NUM 100000    // MAY CHANGE - number of generations - length of evolution
+#define RUNS_NUM 100            // MAY CHANGE - number of separate evolutions
+#define GENS_MUTATTIONS_NUM 4   // MAY CHANGE - max number of mutations in 1 chromosome
 
-#define REQUIRED_COR_IM 4
-#define LOG_ON_LINE 1000
+#define REQUIRED_COR_IM 1       // MAY CHANGE - required correlation immunity
+#define LOG_PERIODE 5000         // MAY CHANGE - periode of logging in evolution (log will be printed every LOG_PERIODE generation)
 
 using namespace std;
 using chromosome_t = vector<int>;

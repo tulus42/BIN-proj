@@ -1,7 +1,5 @@
 all:	compile
 
-
-
 compile:	ebf.cpp ebf.h
 		g++ ebf.cpp -o ebf
 
@@ -10,6 +8,3 @@ run:	compile
 
 clean:
 		rm ebf 
-
-cleanlog:
-		rm log_*.*
